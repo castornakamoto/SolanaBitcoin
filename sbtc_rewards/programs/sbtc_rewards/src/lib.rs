@@ -6,7 +6,6 @@ declare_id!("9jEs9Sy93JMhY8VsVA7Z5TPA6Mi6eRWVBMWMcqppr1Ss");
 
 #[program]
 pub mod pdas {
-
     use super::*;
 
     pub fn create_ledger(
@@ -48,6 +47,33 @@ pub mod pdas {
 
         Ok(())
     }
+
+    pub fn withdraw_funds(
+        ctx: Context<WithdrawFunds>,
+        amount: u64,
+    ) -> Result<()> {
+        let ledger_account = &mut ctx.accounts.ledger_account;
+        let wallet = &ctx.accounts.wallet;
+
+        // Ensure that the caller is the owner of the PDA
+        // if *ledger_account.to_account_info().key != *wallet.to_account_info().key {
+        //     return Err(ErrorCode::NotAuthorized.into());
+        // }
+
+        // Check if there are sufficient funds in the PDA to withdraw
+        if ledger_account.locked_amount < amount {
+            return Err(ErrorCode::InsufficientFunds.into());
+        }
+
+        **ledger_account.to_account_info().try_borrow_mut_lamports()? -= amount;
+        **wallet.to_account_info().try_borrow_mut_lamports()? += amount;
+
+        // Update the ledger balance
+        ledger_account.locked_amount -= amount;
+
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
@@ -82,6 +108,16 @@ pub struct DepositFunds<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct WithdrawFunds<'info> {
+    #[account(mut, signer)]
+    pub wallet: Signer<'info>,
+    #[account(mut)]
+    pub ledger_account: Account<'info, Ledger>,
+    pub system_program: Program<'info, System>,
+}
+
+
 #[error_code]
 pub enum ErrorCode {
     #[msg("Overflow when adding to the balance")]
@@ -90,6 +126,8 @@ pub enum ErrorCode {
     InsufficientFunds,
     #[msg("Failed to retrieve balance")]
     BalanceRetrievalFailure,
+    #[msg("Not authorized to perform this action")]
+    NotAuthorized,
 }
 
 #[account]

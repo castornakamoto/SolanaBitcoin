@@ -84,10 +84,13 @@ describe("pdas", () => {
 
       // Display the current balance in the source wallet in SOL
       const initialBalance = await provider.connection.getBalance(wallet.publicKey);
-      console.log(`Initial balance in source wallet: ${initialBalance / 1e9} SOL`);
+      console.log(`Initial balance in source wallet: ${initialBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+
+      const initialData = await program.account.ledger.fetch(pda);
+      console.log(`Timestamp: ${initialData.timestamp} Previous locked amount: ${initialData.lockedAmount.toNumber()  / anchor.web3.LAMPORTS_PER_SOL} SOL tokens`);
 
       // Invoke the depositFunds method of the program
-      console.log(`Depositing ${amount.toNumber() / 1e9} SOL tokens...`);
+      console.log(`Depositing ${amount.toNumber() / anchor.web3.LAMPORTS_PER_SOL} SOL tokens...`);
       await program.methods.depositFunds(amount)
         .accounts({
           ledgerAccount: pda,
@@ -98,11 +101,11 @@ describe("pdas", () => {
 
       // Fetch and display the updated ledger account data after the deposit
       const updatedData = await program.account.ledger.fetch(pda);
-      console.log(`Timestamp: ${updatedData.timestamp}   Locked amount: ${updatedData.lockedAmount.toNumber()  / 1e9} SOL tokens`);
+      console.log(`Timestamp: ${updatedData.timestamp}  End locked amount: ${updatedData.lockedAmount.toNumber()  / anchor.web3.LAMPORTS_PER_SOL} SOL tokens`);
 
       // Get the current balance of the wallet and display it in SOL
       const endBalance = await provider.connection.getBalance(wallet.publicKey);
-      console.log(`Current balance in source wallet: ${endBalance / 1e9} SOL`);
+      console.log(`Current balance in source wallet: ${endBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
     } catch (e) {
       console.log("Ledger account does NOT exist. Creating...");
 
@@ -114,6 +117,63 @@ describe("pdas", () => {
       await depositFunds(amount, wallet);
     }
   }
+
+  async function withdrawFunds(
+    amount: anchor.BN,
+    wallet: anchor.web3.Keypair
+): Promise<void> {
+    console.log("--------------------------------------------------");
+
+    let data;
+    let pda = await derivePda(wallet.publicKey);
+
+    // Check if the ledger account associated with the PDA exists
+    console.log(`Checking if account ${shortKey(pda)} exists`);
+    try {
+        data = await program.account.ledger.fetch(pda);
+        console.log("Ledger account exists.");
+    } catch (e) {
+        console.log("Ledger account does NOT exist. Withdrawal not possible.");
+        return;
+    }
+
+    // Convert the withdrawal amount from lamports to SOL for display
+    const withdrawalAmountSOL = amount.toNumber() / anchor.web3.LAMPORTS_PER_SOL;
+    console.log(`Requesting withdrawal of ${withdrawalAmountSOL} SOL`);
+
+    // Verify if the requested withdrawal amount is valid
+    if (amount.toNumber() > data.lockedAmount) {
+        console.log("Insufficient funds for withdrawal.");
+        return;
+    }
+
+    // Get the previous balance of the wallet and display it in SOL
+    const prevBalance = await provider.connection.getBalance(wallet.publicKey);
+    console.log(`Previous balance in source wallet: ${prevBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+
+    const initialData = await program.account.ledger.fetch(pda);
+      console.log(`Timestamp: ${initialData.timestamp} Previous locked amount: ${initialData.lockedAmount.toNumber()  / anchor.web3.LAMPORTS_PER_SOL} SOL tokens`);
+
+    // Invoke the withdrawFunds method of the program
+    console.log(`Withdrawing ${withdrawalAmountSOL} SOL...`);
+    await program.methods.withdrawFunds(amount)
+        .accounts({
+            ledgerAccount: pda,
+            wallet: wallet.publicKey,
+        })
+        .signers([wallet])
+        .rpc();
+
+    // Fetch and display the updated ledger account data after withdrawal
+    data = await program.account.ledger.fetch(pda);
+    console.log(`Timestamp: ${data.timestamp}   Locked amount: ${data.lockedAmount / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+
+    // Get the current balance of the wallet and display it in SOL
+    const endBalance = await provider.connection.getBalance(wallet.publicKey);
+    console.log(`Current balance in source wallet: ${endBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+}
+
+  
 
   it('An example of PDAs in action', async () => {
 
@@ -135,7 +195,7 @@ describe("pdas", () => {
       await new Promise( resolve => setTimeout(resolve, 3 * 1000) ); // Sleep  */
 
       // Test functions
-      await depositFunds(new BN(50000000), testKeypair1);
-      await depositFunds(new BN(10000000), testKeypair2);
+      await withdrawFunds(new BN(500000000), testKeypair1);
+      await withdrawFunds(new BN(10000000), testKeypair2);
   });
 });
