@@ -12,8 +12,10 @@ pub mod pdas {
         ctx: Context<CreateLedger>,
     ) -> Result<()> {
         let ledger_account = &mut ctx.accounts.ledger_account;
-        ledger_account.locked_amount = 0;
-        ledger_account.timestamp = Clock::get()?.unix_timestamp;
+
+        //Initialize the ledger account and first element of the locks vector
+        ledger_account.locks = Vec::new();
+
         Ok(())
     }
 
@@ -40,10 +42,15 @@ pub mod pdas {
             ],
         )?;
 
-        // Update the ledger balance
-        ledger_account.locked_amount = ledger_account.locked_amount.checked_add(amount).ok_or_else(|| {
-            anchor_lang::error!(ErrorCode::Overflow)
-        })?;
+        // Create a new TokenLock instance
+        let new_lock = TokenLock {
+            amount,
+            timestamp: Clock::get()?.unix_timestamp,
+            // Initialize other fields as needed
+        };
+
+        // Add the new lock to the ledger
+        ledger_account.locks.push(new_lock);
 
         Ok(())
     }
@@ -51,28 +58,41 @@ pub mod pdas {
     pub fn withdraw_funds(
         ctx: Context<WithdrawFunds>,
         amount: u64,
+        lock_index: u64,
     ) -> Result<()> {
         let ledger_account = &mut ctx.accounts.ledger_account;
         let wallet = &ctx.accounts.wallet;
 
-        // Ensure that the caller is the owner of the PDA
-        // if *ledger_account.to_account_info().key != *wallet.to_account_info().key {
-        //     return Err(ErrorCode::NotAuthorized.into());
-        // }
+        let lockindex = lock_index as usize;
 
-        // Check if there are sufficient funds in the PDA to withdraw
-        if ledger_account.locked_amount < amount {
+        // Check if the lock_index is valid
+        if lockindex >= ledger_account.locks.len() {
+            return Err(ErrorCode::LockIndexOutOfBounds.into());
+        }
+
+        // Temporarily remove the lock from the vector for processing
+        let mut lock = ledger_account.locks.remove(lockindex);
+
+        // Ensure there are sufficient funds in the lock
+        if lock.amount < amount {
+            // If insufficient funds, add the lock back to the ledger before returning error
+            ledger_account.locks.insert(lockindex, lock);
             return Err(ErrorCode::InsufficientFunds.into());
         }
 
+        // Perform the fund transfer
         **ledger_account.to_account_info().try_borrow_mut_lamports()? -= amount;
         **wallet.to_account_info().try_borrow_mut_lamports()? += amount;
 
-        // Update the ledger balance
-        ledger_account.locked_amount -= amount;
+        // Update the amount in the lock
+        lock.amount -= amount;
+
+        // Re-insert the lock back into the ledger
+        ledger_account.locks.insert(lockindex, lock);
 
         Ok(())
     }
+
 
 }
 
@@ -81,7 +101,7 @@ pub struct CreateLedger<'info> {
     #[account(
     init,
     payer = wallet,
-    space = 8 + 128,
+    space = 8 + 640,
     seeds = [wallet.key().as_ref(), b"_"],
     bump
     )]
@@ -128,10 +148,17 @@ pub enum ErrorCode {
     BalanceRetrievalFailure,
     #[msg("Not authorized to perform this action")]
     NotAuthorized,
+    #[msg("Lock index out of bounds")]
+    LockIndexOutOfBounds,
 }
 
 #[account]
 pub struct Ledger {
-    pub locked_amount: u64,
-    pub timestamp: i64, // Add the timestamp field
+    pub locks: Vec<TokenLock>,
+}
+
+#[derive(Clone, AnchorDeserialize, AnchorSerialize)]
+pub struct TokenLock {
+    amount: u64,
+    timestamp: i64,
 }
