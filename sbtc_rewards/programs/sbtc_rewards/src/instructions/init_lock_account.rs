@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::state::ledger::Ledger;
+use crate::state::lock_account::LockAccount;
 
 
 #[derive(Accounts)]
@@ -11,17 +11,17 @@ pub struct InitLockAccount<'info> {
     seeds = [wallet.key().as_ref(), b"_"],
     bump
     )]
-    pub ledger_account: Account<'info, Ledger>,
+    pub lock_account: Account<'info, LockAccount>,
     #[account(mut)]
     pub wallet: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<InitLockAccount>) -> Result<()> {
-    let ledger_account = &mut ctx.accounts.ledger_account;
+    let lock_account = &mut ctx.accounts.lock_account;
 
-    //Initialize the ledger account and first element of the locks vector
-    ledger_account.locks = Vec::new();
+    //Initialize the lock account and first element of the locks vector
+    lock_account.locks = Vec::new();
 
     Ok(())
 }

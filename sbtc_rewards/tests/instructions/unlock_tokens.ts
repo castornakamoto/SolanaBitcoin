@@ -1,6 +1,6 @@
 import * as anchor from "@project-serum/anchor";
-import { convertLockToReadable, derivePda, shortKey } from "../utils";
-import { Pdas } from "../../target/types/pdas";
+import { convertLockToReadable, derivePda, shortKey } from "../utils/utils";
+import { RewardSystem } from "../../target/types/reward_system";
 
 /**
  * Withdraws a specified amount of funds from the ledger associated with the provided wallet.
@@ -10,22 +10,22 @@ import { Pdas } from "../../target/types/pdas";
  * @param {anchor.BN} amount - The amount of funds to withdraw, in lamports.
  * @returns {Promise<void>} A promise that resolves when the withdrawal is complete.
  */
-export async function unlockTokens(program: anchor.Program<Pdas>, wallet: anchor.web3.Keypair, lockIndex: anchor.BN, amount: anchor.BN) {
+export async function unlockTokens(program: anchor.Program<RewardSystem>, wallet: anchor.web3.Keypair, lockIndex: anchor.BN, amount: anchor.BN) {
     console.log("--------------------------------------------------");
     const provider = anchor.AnchorProvider.env();
     let currentData;
     let pda = await derivePda(program, wallet.publicKey);
 
-    // Check if the ledger account associated with the PDA exists
+    // Check if the lock account associated with the PDA exists
     console.log(`Checking if account ${shortKey(pda)} exists`);
     try {
-        currentData = await program.account.ledger.fetch(pda) as LedgerData;
+        currentData = await program.account.lockAccount.fetch(pda) as LockAccount;
         currentData.locks.forEach((lock, index) => {
             const readableLock = convertLockToReadable(lock);
-            console.log(`Lock ${index}: Amount - ${readableLock.amount}, Timestamp - ${readableLock.timestamp}`);
+            console.log(`Lock ${index}: Amount: ${readableLock.amount} || Timestamp: ${readableLock.timestamp}`);
         });
     } catch (e) {
-        console.log("Ledger account does NOT exist. Withdrawal not possible.");
+        console.log("lock account does NOT exist. Withdrawal not possible.");
         return;
     }
 
@@ -50,20 +50,20 @@ export async function unlockTokens(program: anchor.Program<Pdas>, wallet: anchor
     console.log(`Previous balance in source wallet: ${prevBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
 
     // Invoke the withdrawFunds method of the program
-    console.log(`Withdrawing ${withdrawalAmountSOL} SOL...`);
+    console.log(`Unlocking ${withdrawalAmountSOL} SOL...`);
     await program.methods.unlockTokens(amount, lockIndex)
         .accounts({
-            ledgerAccount: pda,
+            lockAccount: pda,
             wallet: wallet.publicKey,
         })
         .signers([wallet])
         .rpc();
 
-    // Fetch and display updated ledger account data
-    const updatedData = await program.account.ledger.fetch(pda) as LedgerData;
+    // Fetch and display updated lock account data
+    const updatedData = await program.account.lockAccount.fetch(pda) as LockAccount;
     updatedData.locks.forEach((lock, index) => {
         const readableLock = convertLockToReadable(lock);
-        console.log(`Lock ${index}: Amount - ${readableLock.amount}, Timestamp - ${readableLock.timestamp}`);
+        console.log(`Lock ${index}: Amount: ${readableLock.amount} || Timestamp: ${readableLock.timestamp}`);
     });
 
 

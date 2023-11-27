@@ -1,6 +1,6 @@
 import * as anchor from "@project-serum/anchor";
 import fs from 'fs';
-import { Pdas } from "../target/types/pdas";
+import { RewardSystem } from "../../target/types/reward_system";
 
 const keypairDir = 'keypairs/';
 
@@ -40,21 +40,40 @@ export async function loadKeypair(name: string): Promise<anchor.web3.Keypair | u
     }
 }
 
+/**
+ * Requests an airdrop of a specified amount of lamports to a given test wallet.
+ * 
+ * @param {anchor.web3.Keypair} testKeypair1 - The test wallet keypair to which the airdrop
+*/
 export async function requestAirdrop(testKeypair1: anchor.web3.Keypair, amount: number) {
     const provider = anchor.AnchorProvider.env();
-    console.log(`Requesting airdrop of ${amount} lamports for ${testKeypair1.publicKey}`);
+    
+    console.log(`Requesting airdrop of ${amount / anchor.web3.LAMPORTS_PER_SOL} SOL tokens for ${shortKey(testKeypair1.publicKey)}`);
+
+    // Get and print the balance before the airdrop
+    const beforeAirdropBalance = await provider.connection.getBalance(testKeypair1.publicKey);
+    console.log(`Balance before airdrop: ${beforeAirdropBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+
     await provider.connection.requestAirdrop(
       testKeypair1.publicKey,
       amount
     );
-  }
+
+    // Wait for transaction to be confirmed
+    await new Promise( resolve => setTimeout(resolve, 3 * 1000) ); // Sleep
+
+    // Get and print the balance after the airdrop
+    const afterAirdropBalance = await provider.connection.getBalance(testKeypair1.publicKey);
+    console.log(`Balance after airdrop: ${afterAirdropBalance / anchor.web3.LAMPORTS_PER_SOL} SOL `);
+}
+
   
 /**
  * Derives a program-derived address (PDA) based on the given public key and program ID.
  * @param pubkey - The public key used to derive the PDA.
  * @returns The derived program address.
  */
-export async function derivePda(program: anchor.Program<Pdas>, pubkey: anchor.web3.PublicKey): Promise<anchor.web3.PublicKey> {
+export async function derivePda(program: anchor.Program<RewardSystem>, pubkey: anchor.web3.PublicKey): Promise<anchor.web3.PublicKey> {
     const [pda, _] = await anchor.web3.PublicKey.findProgramAddressSync(
         [
             pubkey.toBuffer(),

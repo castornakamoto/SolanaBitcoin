@@ -6,7 +6,7 @@ mod errors;
 
 use instructions::*;
 
-declare_id!("9jEs9Sy93JMhY8VsVA7Z5TPA6Mi6eRWVBMWMcqppr1Ss");
+declare_id!("9BbFwAey17Td8zo1MC7P2caDSJyBhummig8QpMtmpNjj");
 
 #[program]
 pub mod reward_system {

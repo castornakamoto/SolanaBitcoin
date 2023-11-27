@@ -1,9 +1,9 @@
-interface TokenLock {
+interface LockEntry {
     amount: string; // Assuming these are serialized as strings
     timestamp: string;
 }
 
-interface LedgerData {
-    locks: TokenLock[];
+interface LockAccount {
+    locks: LockEntry[];
 }
 

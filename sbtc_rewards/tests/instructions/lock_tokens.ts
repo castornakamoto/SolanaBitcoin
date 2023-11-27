@@ -1,15 +1,15 @@
 import * as anchor from "@project-serum/anchor";
-import { convertLockToReadable, derivePda, shortKey } from "../utils";
-import { Pdas } from "../../target/types/pdas";
+import { convertLockToReadable, derivePda, shortKey } from "../utils/utils";
+import { RewardSystem } from "../../target/types/reward_system";
 import { initLockAccount } from "./init_lock_account";
 
 /**
- * Deposits a specified amount of tokens into a ledger account associated with the given wallet.
- * If the ledger account does not exist, it is created.
+ * Deposits a specified amount of tokens into a lock account associated with the given wallet.
+ * If the lock account does not exist, it is created.
  * @param wallet - The keypair of the wallet initiating the deposit.
  * @param amount - The amount of tokens to deposit.
  */
-export async function lockTokens(program: anchor.Program<Pdas>, wallet: anchor.web3.Keypair, amount: anchor.BN, ): Promise<void> {
+export async function lockTokens(program: anchor.Program<RewardSystem>, wallet: anchor.web3.Keypair, amount: anchor.BN, ): Promise<void> {
     console.log("\n");
     console.log("--------------------------------------------------");
     console.log(`Current wallet: ${shortKey(wallet.publicKey)}`);
@@ -20,46 +20,51 @@ export async function lockTokens(program: anchor.Program<Pdas>, wallet: anchor.w
     let currentData;
     let pda = await derivePda(program, wallet.publicKey);
 
-    // Check if the ledger account associated with the PDA exists
+    // Check if the lock account associated with the PDA exists
     console.log(`Checking if account ${shortKey(pda)} exists`);
-    let ledgerAccountExists = false;
+    let lockAccountExists = false;
 
     try {
-        currentData = await program.account.ledger.fetch(pda);
+        currentData = await program.account.lockAccount.fetch(pda);
         currentData.locks.forEach((lock, index) => {
             const readableLock = convertLockToReadable(lock);
-            console.log(`Lock ${index}: Amount - ${readableLock.amount}, Timestamp - ${readableLock.timestamp}`);
+            console.log(`Lock ${index}: Amount: ${readableLock.amount} || Timestamp: ${readableLock.timestamp}`);
         });
-        ledgerAccountExists = true;
+        lockAccountExists = true;
     } catch (e) {
-        console.log("Ledger account does NOT exist. Creating...");
+        console.log("Lock account does NOT exist. Creating...");
     }
 
-    if (!ledgerAccountExists) {
-        // Create the ledger account if it doesn't exist
-        initLockAccount(program, pda, wallet);
-        console.log("Ledger account created.");
+    if (!lockAccountExists) {
+        // Create the lock account if it doesn't exist
+        await initLockAccount(program, pda, wallet);
     }
 
     // Display the current balance in the source wallet in SOL
     const initialBalance = await provider.connection.getBalance(wallet.publicKey);
     console.log(`Initial balance in source wallet: ${initialBalance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
 
+    // Check if the lock amount is available
+    if (amount.toNumber() > initialBalance) {
+        console.log(`Insufficient balance. Available: ${initialBalance / anchor.web3.LAMPORTS_PER_SOL} SOL, Required: ${amount.toNumber()  / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+        return; // Exit the function if insufficient funds
+    }
+
     // Invoke the depositFunds method of the program
-    console.log(`Depositing ${amount.toNumber() / anchor.web3.LAMPORTS_PER_SOL} SOL tokens...`);
+    console.log(`Locking ${amount.toNumber() / anchor.web3.LAMPORTS_PER_SOL} SOL tokens...`);
     await program.methods.lockTokens(amount)
         .accounts({
-            ledgerAccount: pda,
+            lockAccount: pda,
             wallet: wallet.publicKey,
         })
         .signers([wallet])
         .rpc();
 
-    // Fetch and display the updated ledger account data after the deposit
-    const updatedData = await program.account.ledger.fetch(pda) as LedgerData;
+    // Fetch and display the updated lock account data after the deposit
+    const updatedData = await program.account.lockAccount.fetch(pda) as LockAccount;
     updatedData.locks.forEach((lock, index) => {
         const readableLock = convertLockToReadable(lock);
-        console.log(`Lock ${index}: Amount - ${readableLock.amount}, Timestamp - ${readableLock.timestamp}`);
+        console.log(`Lock ${index}: Amount: ${readableLock.amount} || Timestamp: ${readableLock.timestamp}`);
     });
 
     // Get the current balance of the wallet and display it in SOL
