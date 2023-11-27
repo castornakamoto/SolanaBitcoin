@@ -1,18 +1,37 @@
 # SolanaBitcoin Rewards Program
 
-## Overview
+# Overview
 
-This project contains the smart contract that will be used for the token reward system for long term holders. It includes a client written in JavaScript to interact with the Solana blockchain and a smart contract written in Rust.
+This project includes a smart contract for a token reward system targeting long-term holders. It utilizes the Anchor framework for Solana, comprising a client written in JavaScript for interacting with the Solana blockchain, and a smart contract developed in Rust.\
 
-## Getting Started
+## How does the program work?
+TBD
 
-### Prerequisites
+## Smart Contract Functionality
+- LockFunds: Lock an amount of funds in the smart contract.
+- UnlockFunds: Unlock the funds.
+- GetLockInfo: Retrieve information about the locked funds.
+- ClaimRewards: Retrieved the obtained tokens 
+
+## Development
+- Client (TypeScript)
+The client is responsible for sending transactions to the Solana network for debug purposes. It uses the @solana/web3.js library.
+
+- Smart Contract (Rust)
+The smart contract processes instructions for locking and unlocking funds. It's written in Rust using the Solana Program Library (SPL).
+
+<br/>
+
+# Getting Started
+
+## Prerequisites
 
 - Node.js and npm
-- Rust and Cargo
+- Rust, Cargo, and Anchor
 - Solana CLI tools
 
-### Installation
+
+## Installation
 
 Clone the repository and install dependencies:
 
@@ -23,45 +42,40 @@ npm install
 ```
 
 
-### Running a Local Solana Testnet
+## Setting up Anchor
+https://www.anchor-lang.com/docs/installation
+
+<br/>
+
+## Running a Local Solana Testnet
 Use Solana CLI to run a local testnet:
 
 ```bash
 solana-test-validator
 ```
 
-### Deploying the Smart Contract
+## Deploying the Smart Contract
 Compile and deploy the smart contract:
 
 ```bash
 cd path/to/your/rust/project
-cargo build-bpf --bpf-out-dir=dist/program
-solana program deploy dist/program/solana_hello_world.so
+cargo build-bpf 
+anchor build
+anchor deploy
 ```
 
-### Usage
-Run the client script to interact with the smart contract:
+## Test
 
 ```bash
-node client.js
+anchor test
 ```
 
-## Smart Contract Functionality
-- LockFunds: Lock an amount of funds in the smart contract.
-- UnlockFunds: Unlock the funds.
-- GetLockInfo: Retrieve information about the locked funds.
+<br/>
 
-## Development
-- Client (JavaScript)
-The client is responsible for sending transactions to the Solana network for debug purposes. It uses the @solana/web3.js library.
-
-- Smart Contract (Rust)
-The smart contract processes instructions for locking and unlocking funds. It's written in Rust using the Solana Program Library (SPL).
-
-## Contributing
+# Contributing
 Contributions are welcome! Please read our contributing guidelines for details.
 
-## License
+# License
 
 This project and all its contents are copyrighted by SolanaBitcoin, © 2023 SolanaBitcoin. All rights reserved.
 
